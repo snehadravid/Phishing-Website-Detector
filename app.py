@@ -1,7 +1,7 @@
-
 import streamlit as st
 import joblib
 from pathlib import Path
+from datetime import datetime
 
 # ---------------- PAGE SETTINGS ----------------
 
@@ -28,7 +28,6 @@ st.markdown("""
     font-size: 38px;
     font-weight: 800;
     color: #38bdf8;
-    margin-bottom: 5px;
 }
 
 .subtitle {
@@ -53,15 +52,6 @@ div.stButton > button:hover {
     color: white;
 }
 
-.result-card {
-    padding: 22px;
-    border-radius: 14px;
-    background: #173653;
-    text-align: center;
-    margin-top: 20px;
-    border: 1px solid #315675;
-}
-
 .footer {
     text-align: center;
     color: #94a3b8;
@@ -82,6 +72,11 @@ try:
 except Exception as error:
     st.error(f"Unable to load model: {error}")
     st.stop()
+
+# ---------------- INITIALIZE HISTORY ----------------
+
+if "scan_history" not in st.session_state:
+    st.session_state.scan_history = []
 
 # ---------------- WEBSITE HEADER ----------------
 
@@ -127,18 +122,24 @@ if st.button("🔍 Scan Website"):
             classes = list(model.classes_)
             confidence = probabilities[classes.index(prediction)] * 100
 
-            st.markdown('<div class="result-card">', unsafe_allow_html=True)
-
             if prediction == 0:
+                result = "Potentially Phishing"
                 st.error("⚠️ Potentially Phishing Website")
                 st.write("Avoid entering passwords or personal information.")
             else:
+                result = "Likely Legitimate"
                 st.success("✅ Likely Legitimate Website")
                 st.write("The model classifies this URL as legitimate.")
 
             st.metric("Model Confidence", f"{confidence:.2f}%")
 
-            st.markdown('</div>', unsafe_allow_html=True)
+            # Save scan in session history
+            st.session_state.scan_history.insert(0, {
+                "url": website_url,
+                "result": result,
+                "confidence": f"{confidence:.2f}%",
+                "time": datetime.now().strftime("%d-%m-%Y %H:%M:%S")
+            })
 
             st.caption(
                 "Confidence is the model's estimated probability, "
@@ -147,6 +148,30 @@ if st.button("🔍 Scan Website"):
 
         except Exception as error:
             st.error(f"Prediction error: {error}")
+
+# ---------------- SCAN HISTORY ----------------
+
+st.divider()
+
+st.subheader("📜 Scan History")
+
+if st.session_state.scan_history:
+
+    for index, scan in enumerate(st.session_state.scan_history, start=1):
+
+        with st.expander(f"Scan {index}: {scan['url']}"):
+
+            st.write("**Website URL:**", scan["url"])
+            st.write("**Result:**", scan["result"])
+            st.write("**Confidence:**", scan["confidence"])
+            st.write("**Scan Time:**", scan["time"])
+
+    if st.button("🗑️ Clear Scan History"):
+        st.session_state.scan_history = []
+        st.rerun()
+
+else:
+    st.info("No scan history available. Scan a website to see its history.")
 
 # ---------------- SAFETY INFORMATION ----------------
 
